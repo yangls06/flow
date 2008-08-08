@@ -1,11 +1,10 @@
 # copyright ryah dahl all rights reserved
 # see readme for license
 require 'rev' 
-require File.dirname(__FILE__) + "/../ext/ebb_parser"
+require File.dirname(__FILE__) + "/../ext/flow_parser"
 require File.dirname(__FILE__) + "/flow/version"
 
 module Flow
-
   # The only public method
   # the rest is private.
   def self.start_server(evloop, app, options = {})
@@ -21,7 +20,7 @@ module Flow
     def initialize(socket, app)
       @app = app
       @timeout = Timeout.new(self, TIMEOUT) 
-      @parser = Ebb::RequestParser.new(self)
+      @parser = Flow::Parser.new(self)
       @responses = []
       super(socket)
     end
@@ -201,74 +200,70 @@ module Flow
       505  => 'HTTP Version not supported'
     }.freeze
   end
-end
 
-module Ebb
-  class RequestParser
-    class Request 
-      BASE_ENV = {
-        'SERVER_NAME' => '0.0.0.0',
-        'SCRIPT_NAME' => '',
-        'QUERY_STRING' => '',
-        'SERVER_SOFTWARE' => Flow::VERSION,
-        'SERVER_PROTOCOL' => 'HTTP/1.1',
-        'rack.version' => [0, 1],
-        'rack.errors' => STDERR,
-        'rack.url_scheme' => 'http',
-        'rack.multiprocess' => false,
-        'rack.run_once' => false
-      }
-      attr_accessor :fiber, :connection
+  # created in c-land
+  class Request 
+    BASE_ENV = {
+      'SERVER_NAME' => '0.0.0.0',
+      'SCRIPT_NAME' => '',
+      'QUERY_STRING' => '',
+      'SERVER_SOFTWARE' => Flow::VERSION,
+      'SERVER_PROTOCOL' => 'HTTP/1.1',
+      'rack.version' => [0, 1],
+      'rack.errors' => STDERR,
+      'rack.url_scheme' => 'http',
+      'rack.multiprocess' => false,
+      'rack.run_once' => false
+    }
+    attr_accessor :fiber, :connection
 
-      def env
-        @env ||= begin
-          env = BASE_ENV.merge(@env_ffi)
-          env["rack.input"] = self
-          env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
-          env["async.callback"] = response
-          env
-        end
+    def env
+      @env ||= begin
+        env = BASE_ENV.merge(@env_ffi)
+        env["rack.input"] = self
+        env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
+        env["async.callback"] = response
+        env
       end
+    end
 
-      def response
-        @response ||= begin
-          last = !keep_alive? # this is the last response if the request isnt keep-alive
-          Flow::Response.new(@connection, last)
-        end
+    def response
+      @response ||= begin
+        last = !keep_alive? # this is the last response if the request isnt keep-alive
+        Flow::Response.new(@connection, last)
       end
+    end
 
-      def input
-        @input ||= Rev::Buffer.new
-      end
+    def input
+      @input ||= Rev::Buffer.new
+    end
 
-
-      def read(len = nil)
-        if input.size == 0
-          if @body_complete
-            @fiber = nil
-            nil
-          else
-            Fiber.yield(:wait_for_read)
-            read(len)
-          end
+    def read(len = nil)
+      if input.size == 0
+        if @body_complete
+          @fiber = nil
+          nil
         else
-          input.read(len)
+          Fiber.yield(:wait_for_read)
+          read(len)
         end
+      else
+        input.read(len)
       end
+    end
 
-      # XXX hacky fiber shit...
+    # XXX hacky fiber shit...
 
-      def on_body(chunk)
-        input.append(chunk)
-        if @fiber
-          @fiber = nil if @fiber.resume != :wait_for_read
-        end
+    def on_body(chunk)
+      input.append(chunk)
+      if @fiber
+        @fiber = nil if @fiber.resume != :wait_for_read
       end
+    end
 
-      def on_complete
-        if @fiber
-          @fiber = nil if @fiber.resume != :wait_for_read
-        end
+    def on_complete
+      if @fiber
+        @fiber = nil if @fiber.resume != :wait_for_read
       end
     end
   end

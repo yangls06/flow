@@ -5,7 +5,7 @@ require 'rake/clean'
 
 require File.dirname(__FILE__) + "/lib/flow/version"
 
-SRC = ["ext/ebb_request_parser.h", "ext/ebb_request_parser.c", "ext/ebb_parser.c"]
+SRC = ["ext/ebb_request_parser.h", "ext/ebb_request_parser.c", "ext/flow_parser.c"]
 CLEAN.add ["**/*.{o,bundle,so,obj,pdb,lib,def,exp}"]
 CLOBBER.add ['ext/Makefile', 'ext/mkmf.log', 'pkg', '.libebb', "ext/ebb_request_parser.*"]
 
