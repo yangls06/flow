@@ -12,21 +12,16 @@ module Flow
   # grass and breadcrumbs and water flow 
   # in the darkness for you
   def self.start_server(evloop, app, options = {})
-    socket = TCPServer.new("localhost", (options[:port] || 4001).to_i)
-    server = Flow::Server.new(socket, app)
+    # use 0.0.0.0 not "localhost" it really fucks up osx
+    port = (options[:port] || 4001).to_i
+    socket = TCPServer.new("0.0.0.0", port)
+    server = Rev::Server.new(socket, Flow::Connection, app)
     server.attach(evloop)
-  end
-
-  class Server < Rev::Server
-    def initialize(listen_socket, app) 
-      super(listen_socket, Flow::Connection, app)
-    end
+    puts "flow on http://0.0.0.0:#{port}/"
   end
 
   class Connection < Rev::IO
     TIMEOUT = 3 
-    @@buffer = nil
-
     def initialize(socket, app)
       @app = app
       @timeout = Timeout.new(self, TIMEOUT) 
