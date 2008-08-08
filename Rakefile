@@ -16,7 +16,7 @@ DISTFILES = SRC + %w{
   lib/flow/version.rb
   README
   Rakefile
-  test.rb
+  async_example.rb
   application.rb
 }
 
