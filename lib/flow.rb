@@ -134,26 +134,32 @@ module Flow
 
       # Note: not setting Content-Length. do it yourself.
       
-      ## XXX Have to do this so it is known when end is recieved!
-      if body.kind_of?(Array) and body.last != nil
-        body.push(nil)
+      body.each { |chunk| write(chunk) }
+
+      body.on_error { close } if body.respond_to?(:on_error)
+
+      if body.respond_to?(:on_eof)
+        body.on_eof { finish }
+      else
+        finish
       end
 
-      body.each do |chunk|
-        if chunk.nil? or 
-           (body.respond_to?(:eof?) and body.eof?) ## XXX annoying. need to know end.
-        then
-          @finished = true 
-          @output << "0\r\n\r\n" if @chunked
-        else
-          @output << encode(chunk)
-        end
-        @connection.write_response
-      end
+      # deferred requests SHOULD NOT respond to close
+      body.close if body.respond_to?(:close)
+    end
+
+    def finish
+      @finished = true 
+      @output << "0\r\n\r\n" if @chunked
+      @connection.write_response
     end
     
-    def encode(chunk)
-      @chunked ? "#{chunk.length.to_s(16)}\r\n#{chunk}\r\n" : chunk
+    def write(chunk)
+      encoded = @chunked ? "#{chunk.length.to_s(16)}\r\n#{chunk}\r\n" : chunk
+      # XXX could be optimized - but need to make sure responses 
+      # are written in correct order even if deferred responses are not
+      @output << encoded
+      @connection.write_response
     end
 
     HTTP_STATUS_CODES = {
@@ -244,14 +250,14 @@ module Ebb
             nil
           else
             Fiber.yield(:wait_for_read)
-            ""
+            read(len)
           end
         else
           input.read(len)
         end
       end
 
-      # XXX hacky...
+      # XXX hacky fiber shit...
 
       def on_body(chunk)
         input.append(chunk)
