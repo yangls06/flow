@@ -1,15 +1,14 @@
 # copyright ryah dahl all rights reserved
 # see readme for license
-require 'rubygems'
-require 'rev'
+require 'rev' 
 require File.dirname(__FILE__) + "/../ext/ebb_parser"
+require File.dirname(__FILE__) + "/flow/version"
 
 module Flow
 
   # The only public method
   # the rest is private.
   def self.start_server(evloop, app, options = {})
-    # use 0.0.0.0 not "localhost" it really fucks up osx
     port = (options[:port] || 4001).to_i
     socket = TCPServer.new("0.0.0.0", port)
     server = Rev::Server.new(socket, Flow::Connection, app)
@@ -211,7 +210,7 @@ module Ebb
         'SERVER_NAME' => '0.0.0.0',
         'SCRIPT_NAME' => '',
         'QUERY_STRING' => '',
-        'SERVER_SOFTWARE' => "Flow 0.0.0",
+        'SERVER_SOFTWARE' => Flow::VERSION,
         'SERVER_PROTOCOL' => 'HTTP/1.1',
         'rack.version' => [0, 1],
         'rack.errors' => STDERR,
