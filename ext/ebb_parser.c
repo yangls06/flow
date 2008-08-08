@@ -264,7 +264,7 @@ VALUE request_parser_execute(VALUE rb_parser, VALUE buf)
 }
 
 void
-Init_ebb_request_parser_ffi()
+Init_ebb_parser()
 {
   VALUE mEbb = rb_define_module("Ebb");
   cRequestParser = rb_define_class_under(mEbb, "RequestParser", rb_cObject);

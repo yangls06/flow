@@ -1,8 +1,8 @@
 # copyright ryah dahl all rights reserved
-#
+# see readme for license
 require 'rubygems'
 require 'rev'
-require File.dirname(__FILE__) + "/../ext/ebb_request_parser_ffi"
+require File.dirname(__FILE__) + "/../ext/ebb_parser"
 
 module Flow
 
