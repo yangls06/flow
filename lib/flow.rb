@@ -207,7 +207,6 @@ module Ebb
       BASE_ENV = {
         'SERVER_NAME' => '0.0.0.0',
         'SCRIPT_NAME' => '',
-        'QUERY_STRING' => '',
         'SERVER_SOFTWARE' => "Flow 0.0.0",
         'SERVER_PROTOCOL' => 'HTTP/1.1',
         'rack.version' => [0, 1],
@@ -222,6 +221,7 @@ module Ebb
         @env ||= begin
           env = @env_ffi.update(BASE_ENV)
           env["rack.input"] = self
+          env["QUERY_STRING"] ||= ''
           env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
           env["async.callback"] = response
           env
