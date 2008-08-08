@@ -8,9 +8,6 @@ module Flow
 
   # The only public method
   # the rest is private.
-  #
-  # grass and breadcrumbs and water flow 
-  # in the darkness for you
   def self.start_server(evloop, app, options = {})
     # use 0.0.0.0 not "localhost" it really fucks up osx
     port = (options[:port] || 4001).to_i
@@ -57,7 +54,9 @@ module Flow
 
     def process(req)
       res = req.response
-      status, headers, body = @app.call(req.env)
+      catch :async
+        status, headers, body = @app.call(req.env)
+      end
 
       # James Tucker's async response scheme
       # check out
