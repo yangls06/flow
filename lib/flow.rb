@@ -44,6 +44,7 @@ module Flow
     end
 
     def on_close
+      @responses = [] # free responses so we don't write anymore
       @timeout.detach if @timeout.attached?
     end
 
@@ -220,7 +221,7 @@ module Ebb
 
       def env
         @env ||= begin
-          env = @env_ffi.update(BASE_ENV)
+          env = BASE_ENV.merge(@env_ffi)
           env["rack.input"] = self
           env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
           env["async.callback"] = response
