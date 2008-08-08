@@ -17,6 +17,7 @@ module Flow
 
   class Connection < Rev::IO
     TIMEOUT = 3 
+    attr_reader :responses
     def initialize(socket, app)
       @app = app
       @timeout = Timeout.new(self, TIMEOUT) 
@@ -120,9 +121,9 @@ module Flow
     end
 
     def call(status, headers, body)
-      @output << "HTTP/1.1 #{status} #{HTTP_STATUS_CODES[status.to_i]}\r\n"
-      headers.each { |field, value| @output << "#{field}: #{value}\r\n" }
-      @output << "\r\n"
+      write("HTTP/1.1 #{status} #{HTTP_STATUS_CODES[status.to_i]}\r\n")
+      headers.each { |field, value| write("#{field}: #{value}\r\n") }
+      write("\r\n")
 
       # XXX i would prefer to do
       # @chunked = true unless body.respond_to?(:length)
@@ -148,16 +149,19 @@ module Flow
 
     def finish
       @finished = true 
-      @output << "0\r\n\r\n" if @chunked
+      write("") if @chunked
       @connection.write_response
     end
     
     def write(chunk)
       encoded = @chunked ? "#{chunk.length.to_s(16)}\r\n#{chunk}\r\n" : chunk
-      # XXX could be optimized - but need to make sure responses 
-      # are written in correct order even if deferred responses are not
-      @output << encoded
-      @connection.write_response
+      if self == @connection.responses.first
+        # write directly to output buffer
+        @connection.write(encoded)
+      else
+        # need to buffer - app is writing responses out of order
+        @output << encoded
+      end
     end
 
     HTTP_STATUS_CODES = {
