@@ -53,8 +53,12 @@ module Flow
     end
 
     def process(req)
+      status = headers = body = nil
+      catch(:async) do 
+        status, headers, body = @app.call(req.env)
+      end
+
       res = req.response
-      status, headers, body = @app.call(req.env)
 
       # James Tucker's async response scheme
       # check out
