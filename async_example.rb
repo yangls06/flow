@@ -4,12 +4,29 @@ require File.dirname(__FILE__) + "/lib/flow"
 
 
 class DeferredBody
-  def call(chunk)
-    @callback.call(chunk)
+
+  def eof
+    @eof_callback.call
+  end
+
+  def error
+    @error_callback.call
+  end
+
+  def write(chunk)
+    @each_callback.call(chunk)
+  end
+
+  def on_eof(&block)
+    @eof_callback = block 
+  end
+  
+  def on_error(&block)
+    @error_callback = block 
   end
 
   def each(&block)
-    @callback = block
+    @each_callback = block
   end
 end
 
@@ -49,12 +66,12 @@ class App
     end
 
     Delay.create(@evloop, 1) do 
-      body.call "hello\n" 
+      body.write "hello\n" 
     end
 
     Delay.create(@evloop, 1.5) do 
-      body.call "world\n" 
-      body.call nil
+      body.write "world\n" 
+      body.eof
     end
 
     [0, nil, nil]

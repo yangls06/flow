@@ -19,7 +19,7 @@ static char upcase[] =
   "________________________________"
   "________________________________";
 
-static VALUE cRequestParser;
+static VALUE cParser;
 static VALUE cRequest;
 static VALUE cError;
 
@@ -249,7 +249,7 @@ static VALUE request_parser_init(VALUE rb_parser, VALUE notifier)
 static VALUE request_parser_alloc(VALUE _)
 {
   ebb_request_parser *parser = malloc(sizeof(ebb_request_parser));
-  VALUE rb_parser = Data_Wrap_Struct(cRequestParser, 0, xfree, parser);
+  VALUE rb_parser = Data_Wrap_Struct(cParser, 0, xfree, parser);
   return rb_parser;
 }
 
@@ -264,17 +264,16 @@ VALUE request_parser_execute(VALUE rb_parser, VALUE buf)
 }
 
 void
-Init_ebb_request_parser_ffi()
+Init_flow_parser()
 {
-  VALUE mEbb = rb_define_module("Ebb");
-  cRequestParser = rb_define_class_under(mEbb, "RequestParser", rb_cObject);
-  cRequest = rb_define_class_under(cRequestParser, "Request", rb_cObject);
-  cError = rb_define_class_under(cRequestParser, "Error", rb_eStandardError);
+  VALUE mFlow = rb_define_module("Flow");
+  cParser = rb_define_class_under(mFlow, "Parser", rb_cObject);
+  cRequest = rb_define_class_under(mFlow, "Request", rb_cObject);
+  cError = rb_define_class_under(cParser, "Error", rb_eStandardError);
 
-   
-  rb_define_alloc_func(cRequestParser, request_parser_alloc);
-  rb_define_method(cRequestParser, "initialize", request_parser_init, 1);
-  rb_define_method(cRequestParser, "execute", request_parser_execute, 1);
+  rb_define_alloc_func(cParser, request_parser_alloc);
+  rb_define_method(cParser, "initialize", request_parser_init, 1);
+  rb_define_method(cParser, "execute", request_parser_execute, 1);
 
   rb_define_method(cRequest, "keep_alive?", request_keep_alive, 0);
 #define DEF_GLOBAL(N, val) g_##N = rb_obj_freeze(rb_str_new2(val)); rb_global_variable(&g_##N)
@@ -307,5 +306,4 @@ Init_ebb_request_parser_ffi()
   DEF_GLOBAL(PUT, "PUT");
   DEF_GLOBAL(TRACE, "TRACE");
   DEF_GLOBAL(UNLOCK, "UNLOCK");
- 
 }

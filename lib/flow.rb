@@ -1,36 +1,26 @@
 # copyright ryah dahl all rights reserved
-#
-require 'rubygems'
-require 'rev'
-require File.dirname(__FILE__) + "/../ext/ebb_request_parser_ffi"
+# see readme for license
+require 'rev' 
+require File.dirname(__FILE__) + "/../ext/flow_parser"
+require File.dirname(__FILE__) + "/flow/version"
 
 module Flow
-
   # The only public method
   # the rest is private.
-  #
-  # grass and breadcrumbs and water flow 
-  # in the darkness for you
   def self.start_server(evloop, app, options = {})
-    socket = TCPServer.new("localhost", (options[:port] || 4001).to_i)
-    server = Flow::Server.new(socket, app)
+    port = (options[:port] || 4001).to_i
+    socket = TCPServer.new("0.0.0.0", port)
+    server = Rev::Server.new(socket, Flow::Connection, app)
     server.attach(evloop)
-  end
-
-  class Server < Rev::Server
-    def initialize(listen_socket, app) 
-      super(listen_socket, Flow::Connection, app)
-    end
+    puts "flow on http://0.0.0.0:#{port}/"
   end
 
   class Connection < Rev::IO
     TIMEOUT = 3 
-    @@buffer = nil
-
     def initialize(socket, app)
       @app = app
       @timeout = Timeout.new(self, TIMEOUT) 
-      @parser = Ebb::RequestParser.new(self)
+      @parser = Flow::Parser.new(self)
       @responses = []
       super(socket)
     end
@@ -44,6 +34,7 @@ module Flow
     end
 
     def on_close
+      @responses = [] # free responses so we don't write anymore
       @timeout.detach if @timeout.attached?
     end
 
@@ -60,8 +51,12 @@ module Flow
     end
 
     def process(req)
+      status = headers = body = nil
+      catch(:async) do 
+        status, headers, body = @app.call(req.env)
+      end
+
       res = req.response
-      status, headers, body = @app.call(req.env)
 
       # James Tucker's async response scheme
       # check out
@@ -137,26 +132,32 @@ module Flow
 
       # Note: not setting Content-Length. do it yourself.
       
-      ## XXX Have to do this so it is known when end is recieved!
-      if body.kind_of?(Array) and body.last != nil
-        body.push(nil)
+      body.each { |chunk| write(chunk) }
+
+      body.on_error { close } if body.respond_to?(:on_error)
+
+      if body.respond_to?(:on_eof)
+        body.on_eof { finish }
+      else
+        finish
       end
 
-      body.each do |chunk|
-        if chunk.nil? or 
-           (body.respond_to?(:eof?) and body.eof?) ## XXX annoying. need to know end.
-        then
-          @finished = true 
-          @output << "0\r\n\r\n" if @chunked
-        else
-          @output << encode(chunk)
-        end
-        @connection.write_response
-      end
+      # deferred requests SHOULD NOT respond to close
+      body.close if body.respond_to?(:close)
+    end
+
+    def finish
+      @finished = true 
+      @output << "0\r\n\r\n" if @chunked
+      @connection.write_response
     end
     
-    def encode(chunk)
-      @chunked ? "#{chunk.length.to_s(16)}\r\n#{chunk}\r\n" : chunk
+    def write(chunk)
+      encoded = @chunked ? "#{chunk.length.to_s(16)}\r\n#{chunk}\r\n" : chunk
+      # XXX could be optimized - but need to make sure responses 
+      # are written in correct order even if deferred responses are not
+      @output << encoded
+      @connection.write_response
     end
 
     HTTP_STATUS_CODES = {
@@ -199,74 +200,70 @@ module Flow
       505  => 'HTTP Version not supported'
     }.freeze
   end
-end
 
-module Ebb
-  class RequestParser
-    class Request 
-      BASE_ENV = {
-        'SERVER_NAME' => '0.0.0.0',
-        'SCRIPT_NAME' => '',
-        'SERVER_SOFTWARE' => "Flow 0.0.0",
-        'SERVER_PROTOCOL' => 'HTTP/1.1',
-        'rack.version' => [0, 1],
-        'rack.errors' => STDERR,
-        'rack.url_scheme' => 'http',
-        'rack.multiprocess' => false,
-        'rack.run_once' => false
-      }
-      attr_accessor :fiber, :connection
+  # created in c-land
+  class Request 
+    BASE_ENV = {
+      'SERVER_NAME' => '0.0.0.0',
+      'SCRIPT_NAME' => '',
+      'QUERY_STRING' => '',
+      'SERVER_SOFTWARE' => Flow::VERSION,
+      'SERVER_PROTOCOL' => 'HTTP/1.1',
+      'rack.version' => [0, 1],
+      'rack.errors' => STDERR,
+      'rack.url_scheme' => 'http',
+      'rack.multiprocess' => false,
+      'rack.run_once' => false
+    }
+    attr_accessor :fiber, :connection
 
-      def env
-        @env ||= begin
-          env = @env_ffi.update(BASE_ENV)
-          env["rack.input"] = self
-          env["QUERY_STRING"] ||= ''
-          env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
-          env["async.callback"] = response
-          env
-        end
+    def env
+      @env ||= begin
+        env = BASE_ENV.merge(@env_ffi)
+        env["rack.input"] = self
+        env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
+        env["async.callback"] = response
+        env
       end
+    end
 
-      def response
-        @response ||= begin
-          last = !keep_alive? # this is the last response if the request isnt keep-alive
-          Flow::Response.new(@connection, last)
-        end
+    def response
+      @response ||= begin
+        last = !keep_alive? # this is the last response if the request isnt keep-alive
+        Flow::Response.new(@connection, last)
       end
+    end
 
-      def input
-        @input ||= Rev::Buffer.new
-      end
+    def input
+      @input ||= Rev::Buffer.new
+    end
 
-
-      def read(len = nil)
-        if input.size == 0
-          if @body_complete
-            @fiber = nil
-            nil
-          else
-            Fiber.yield(:wait_for_read)
-            ""
-          end
+    def read(len = nil)
+      if input.size == 0
+        if @body_complete
+          @fiber = nil
+          nil
         else
-          input.read(len)
+          Fiber.yield(:wait_for_read)
+          read(len)
         end
+      else
+        input.read(len)
       end
+    end
 
-      # XXX hacky...
+    # XXX hacky fiber shit...
 
-      def on_body(chunk)
-        input.append(chunk)
-        if @fiber
-          @fiber = nil if @fiber.resume != :wait_for_read
-        end
+    def on_body(chunk)
+      input.append(chunk)
+      if @fiber
+        @fiber = nil if @fiber.resume != :wait_for_read
       end
+    end
 
-      def on_complete
-        if @fiber
-          @fiber = nil if @fiber.resume != :wait_for_read
-        end
+    def on_complete
+      if @fiber
+        @fiber = nil if @fiber.resume != :wait_for_read
       end
     end
   end

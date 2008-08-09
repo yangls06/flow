@@ -1,6 +1,30 @@
-a web server for YARV
+A web server for YARV.
+
+Features:
+ - rack interface
+
+ - persistant and pipelined requests
+
+ - async uploads, each request is in a fiber and will magically yield if you
+   try to read from the request body but the data hasn't arrived yet. (like
+   for large uploads.) to you env['rack.input'] blocks but in reality it never
+   blocks.  Uploads are not buffered.
+
+ - responses can also be streamed. see async_example.rb for an example
+   the api for this is subject to change. 
+
+ - the event loop is exposed, combining your own event loop watchers with
+   async responses allows you to do access the database without blocking
+
+ - supports chunked requests and responses. 
+   chunked requests are transparent - it just happens
+   chunked responses are done when the response header 
+   'Transfer-Encoding' => 'chunked' is set (case-sensitive) 
 
 requires REV!! (which is written by Tony Arcieri)
+
+uses the parser from libebb http://tinyclouds.org/libebb/ which is based on
+Mongrel's parser
 
 ## (The MIT) License
 
