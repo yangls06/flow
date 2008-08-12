@@ -45,14 +45,20 @@ module Flow
 
     def on_request(request)
       request.connection = self
-      fiber = Fiber.new { process(request) }
-      if fiber.resume == :wait_for_read
+      if request.method == "GET"
+        process(request) 
+      else
+        fiber = Fiber.new { process(request) }
+      end
+      if !fiber.nil? and fiber.resume == :wait_for_read
         request.fiber = fiber
       end
     end
 
     def process(req)
-      status = headers = body = nil
+      status = headers = body = nil # how do i pass these out of 
+                                    # catch(:async) and not predeclar them
+                                    # here
       catch(:async) do 
         status, headers, body = @app.call(req.env)
       end
@@ -92,7 +98,7 @@ module Flow
 
     def on_read(data)
       @parser.execute(data)
-    rescue Ebb::RequestParser::Error
+    rescue Flow::Parser::Error
       close
     end
 
@@ -229,6 +235,10 @@ module Flow
         env["async.callback"] = response
         env
       end
+    end
+
+    def method
+      env["REQUEST_METHOD"]
     end
 
     def response

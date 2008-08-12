@@ -57,7 +57,7 @@ class App
   def call(env)
     body = DeferredBody.new 
 
-    Delay.create(@evloop, 0.5) do 
+    Delay.create(@evloop, 0.1) do 
       env['async.callback'].call(
           200, 
           { "content-type" => "text/plain", "Transfer-Encoding" => "chunked" }, 
@@ -65,11 +65,11 @@ class App
       )
     end
 
-    Delay.create(@evloop, 1) do 
+    Delay.create(@evloop, 0.7) do 
       body.write "hello\n" 
     end
 
-    Delay.create(@evloop, 1.5) do 
+    Delay.create(@evloop, 1) do 
       body.write "world\n" 
       body.eof
     end
