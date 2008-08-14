@@ -1,4 +1,5 @@
 require 'rubygems'
+$:.unshift "/home/ryan/src/rev/trunk/lib"
 require 'rev'
 require File.dirname(__FILE__) + "/lib/flow"
 

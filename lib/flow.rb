@@ -4,10 +4,20 @@ require 'rev'
 require File.dirname(__FILE__) + "/../ext/flow_parser"
 require File.dirname(__FILE__) + "/flow/version"
 
+$prof = true
+if $prof
+  require 'ruby-prof'
+end
+
+$i = 0
+
+
 module Flow
   # The only public method
   # the rest is private.
   def self.start_server(evloop, app, options = {})
+
+
     port = (options[:port] || 4001).to_i
     socket = TCPServer.new("0.0.0.0", port)
     server = Rev::Server.new(socket, Flow::Connection, app)
@@ -27,6 +37,13 @@ module Flow
     end
 
     def on_connect
+      if $prof
+        if $i == 0
+          RubyProf.start 
+        end
+        $i += 1
+        @i = $i
+      end
     end
 
     def attach(evloop)
@@ -37,6 +54,13 @@ module Flow
     def on_close
       @responses = [] # free responses so we don't write anymore
       @timeout.detach if @timeout.attached?
+      if $prof
+        if @i == 999 
+          result = RubyProf.stop
+          printer = RubyProf::FlatPrinter.new(result)
+          printer.print(STDOUT)
+        end
+      end
     end
 
     def on_timeout
@@ -49,8 +73,6 @@ module Flow
         process(request) 
       else
         fiber = Fiber.new { process(request) }
-      end
-      if !fiber.nil? and fiber.resume == :wait_for_read
         request.fiber = fiber
       end
     end

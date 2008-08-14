@@ -31,7 +31,7 @@ file('ext/Makefile' => SRC+['ext/extconf.rb']) do
 end
 
 file "ext/ebb_request_parser.c" => "ext/ebb_request_parser.rl" do
-  sh 'ragel -s -G2 ext/ebb_request_parser.rl'
+  sh 'ragel -s ext/ebb_request_parser.rl'
 end
 
 %w{ebb_request_parser.rl ebb_request_parser.h}.each do |f|
