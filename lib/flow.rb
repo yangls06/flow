@@ -226,6 +226,7 @@ module Flow
         env = BASE_ENV.merge(@env_ffi)
         env["rack.input"] = self
         env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
+        env["CONTENT_TYPE"] = env["HTTP_CONTENT_TYPE"]
         env["async.callback"] = response
         env
       end
