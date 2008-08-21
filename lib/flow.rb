@@ -4,7 +4,7 @@ require 'rev'
 require File.dirname(__FILE__) + "/../ext/flow_parser"
 require File.dirname(__FILE__) + "/flow/version"
 
-$prof = true
+$prof = false
 if $prof
   require 'ruby-prof'
 end
@@ -253,8 +253,8 @@ module Flow
       @env ||= begin
         env = BASE_ENV.merge(@env_ffi)
         env["rack.input"] = self
-        env["CONTENT_LENGTH"] = env["HTTP_CONTENT_LENGTH"]
-        env["CONTENT_TYPE"] = env["HTTP_CONTENT_TYPE"]
+        env["CONTENT_LENGTH"] = env.delete("HTTP_CONTENT_LENGTH")
+        env["CONTENT_TYPE"] = env.delete("HTTP_CONTENT_TYPE")
         env["async.callback"] = response
         env
       end
