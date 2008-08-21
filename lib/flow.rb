@@ -285,7 +285,7 @@ module Flow
           read(len)
         end
       else
-        input.read(len)
+        len.nil? ? input.read : input.read(len)
       end
     end
 
